@@ -750,6 +750,12 @@ void CMomentumGameMovement::Friction()
         return;
     }
 
+    if (g_pGameModeSystem->GameModeIs(GAMEMODE_KZ))
+    {
+        DoFrictionKZ(mv->m_vecVelocity);
+        return;
+    }
+
     // Friction shouldn't be affected by z velocity
     Vector velocity = mv->m_vecVelocity;
     velocity.z = 0.0f;
@@ -758,6 +764,78 @@ void CMomentumGameMovement::Friction()
 
     mv->m_vecVelocity.x = velocity.x;
     mv->m_vecVelocity.y = velocity.y;
+}
+
+#define EDGEFRICTION 2 // default value in 1.6
+void CMomentumGameMovement::DoFrictionKZ(Vector &velocity)
+{
+    // TODO: implement 1.6 style edge friction
+    float	speed, newspeed, control;
+	float	friction;
+	float	drop;
+
+    // Don't apply friction in water
+    if (player->m_flWaterJumpTime)
+		return;
+
+    // Calculate speed
+    speed = VectorLength(velocity);
+
+    // If too slow, return
+	if (speed < 0.1f)
+	{
+		return;
+	}
+
+    drop = 0.0f;
+
+    // Apply ground friction
+    if (ShouldApplyGroundFriction())
+    {
+        Vector start, stop;
+        trace_t trace;
+        Ray_t ray;
+
+        Vector pOrigin = player->GetAbsOrigin();
+        Vector vHullMin = GetPlayerMins();
+        Vector vHullMax = GetPlayerMaxs();
+        
+        start[0] = stop[0] = pOrigin[0] + velocity[0] / speed * 16;
+        start[1] = stop[1] = pOrigin[1] + velocity[1] / speed * 16;
+        start[2] = pOrigin[2] + vHullMin[2];
+        stop[2] = start[2] - 34;
+
+        ray.Init(start, stop, vHullMin, vHullMax);
+        UTIL_TraceRay(ray, PlayerSolidMask(), mv->m_nPlayerHandle.Get(), COLLISION_GROUP_PLAYER_MOVEMENT, &trace);
+        
+        if (trace.fraction == 1.0f)
+            friction = sv_friction.GetFloat() * EDGEFRICTION;
+        else
+            friction = sv_friction.GetFloat();
+
+        friction *= player->m_surfaceFriction;
+
+        // Bleed off some speed, but if we have less than the bleed
+		//  threshold, bleed the threshold amount.
+		control = (speed < sv_stopspeed.GetFloat()) ? sv_stopspeed.GetFloat() : speed;
+
+        // Add the amount to the drop amount.
+		drop += control * friction * gpGlobals->frametime;
+        
+    }
+
+    // Scale the velocity
+    newspeed = speed - drop;
+
+    if (newspeed < 0)
+        newspeed = 0;
+
+    // Determine proportion of old speed we are using.
+	newspeed /= speed;
+    // Adjust velocity according to proportion.
+    VectorScale(velocity, newspeed, velocity);
+
+    mv->m_outWishVel -= (1.f-newspeed) * velocity;
 }
 
 float CMomentumGameMovement::GetPlayerGravity()

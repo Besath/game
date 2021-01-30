@@ -71,6 +71,7 @@ public:
     // Momentum-specific
     virtual void StuckGround();
     virtual void LimitStartZoneSpeed();
+    void DoFrictionKZ(Vector &velocity);
 
     // Validate tracerays
     bool IsValidMovementTrace(trace_t &tr);
