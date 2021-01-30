@@ -822,7 +822,7 @@ void CMomentumGameMovement::Duck()
     if (player->GetMoveType() == MOVETYPE_NOCLIP)
         return;
 
-    if (g_pGameModeSystem->GameModeIs(GAMEMODE_AHOP))
+    if (g_pGameModeSystem->GameModeIs(GAMEMODE_AHOP) || g_pGameModeSystem->GameModeIs(GAMEMODE_KZ))
     {
         BaseClass::Duck();
         return;
@@ -1081,6 +1081,12 @@ void CMomentumGameMovement::FinishUnDuck()
         }
 
         VectorAdd(newOrigin, viewDelta, newOrigin);
+    }
+
+    if (g_pGameModeSystem->GameModeIs(GAMEMODE_KZ) && !(player->GetFlags() & FL_DUCKING))
+    {
+        // add height for double duck but only if we haven't ducked completely
+        newOrigin[2] += 18;
     }
 
     player->m_Local.m_bDucked = false;
@@ -1726,6 +1732,11 @@ void CMomentumGameMovement::CategorizePosition()
     }
     else if (bMoveDown)
     {
+        if ( g_pGameModeSystem->GameModeIs(GAMEMODE_KZ)) 
+        {
+            // for double duck to work correctly we can't move back to ground immediately
+            SetGroundEntity(nullptr);
+        }
         // Try and move down.
         TryTouchGround(bumpOrigin, point, GetPlayerMins(), GetPlayerMaxs(), MASK_PLAYERSOLID,
                        COLLISION_GROUP_PLAYER_MOVEMENT, pm);
